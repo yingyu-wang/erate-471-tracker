@@ -9,6 +9,7 @@
     "db:init": "node server/scripts/init-db.js",
     "db:seed": "node server/scripts/seed-db.js",
     "import:usac": "node server/scripts/import-usac.js",
+    "import:usac:py": "python server/scripts/import_usac.py",
     "db:dump": "node server/scripts/create-preloaded-dump.js",
     "db:dump:docker": "docker exec erate-471-postgres pg_dump -U erate -d erate_471 --data-only --table applications --table frns --table status_history --table usac_sync_state -f /tmp/preloaded.sql && docker cp erate-471-postgres:/tmp/preloaded.sql db/preloaded.sql"
   },

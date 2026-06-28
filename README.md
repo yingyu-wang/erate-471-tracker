@@ -86,6 +86,15 @@ npm run import:usac -- --year-min 2024
 
 You can also trigger import from the Dashboard (**Import CA Data** button) or via `POST /api/import/usac`.
 
+**Python SDK alternative (sodapy):** Set `USE_PYTHON_USAC_IMPORT=true` (included in the Docker image). This uses `server/scripts/import_usac.py` (official Socrata Python SDK) for the heavy lifting instead of the Node custom client. Run the Python version directly with:
+
+```bash
+npm run import:usac:py -- --help
+npm run import:usac:py -- --year-min 2025
+```
+
+The web button and startup import will use it when the env var is set. See `server/scripts/requirements-usac-import.txt`.
+
 - Normal click on the button performs a smart sync (respects `USAC_SYNC_MODE`/`USAC_SYNC_YEAR_WINDOW`; bypasses the "datasets unchanged" guard so you always get a fresh check against USAC Open Data for the window).
 - Hold Shift/Ctrl/Cmd while clicking for a forced full import of all funding years (ignores incremental window + change detection).
 - The button now surfaces detailed inserted/updated/unchanged counts and a "Last USAC sync" line (from `GET /api/import/usac/status`) on the dashboard.
