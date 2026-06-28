@@ -86,6 +86,10 @@ npm run import:usac -- --year-min 2024
 
 You can also trigger import from the Dashboard (**Import CA Data** button) or via `POST /api/import/usac`.
 
+- Normal click on the button performs a smart sync (respects `USAC_SYNC_MODE`/`USAC_SYNC_YEAR_WINDOW`; bypasses the "datasets unchanged" guard so you always get a fresh check against USAC Open Data for the window).
+- Hold Shift/Ctrl/Cmd while clicking for a forced full import of all funding years (ignores incremental window + change detection).
+- The button now surfaces detailed inserted/updated/unchanged counts and a "Last USAC sync" line (from `GET /api/import/usac/status`) on the dashboard.
+
 ## Development
 
 ```bash

@@ -33,13 +33,14 @@
       <header class="topbar">
         <h2 id="page-title">Dashboard</h2>
         <div class="topbar-actions">
-          <button id="btn-import-usac" class="btn btn-secondary" title="Import California Form 471 data from USAC Open Data">Import CA Data</button>
+          <button id="btn-import-usac" class="btn btn-secondary" title="Import CA data from USAC (smart sync of recent years). Shift/Ctrl/Cmd-click for full reimport of all years.">Import CA Data</button>
           <button id="btn-new-app" class="btn btn-primary">+ New Application</button>
         </div>
       </header>
 
       <section id="view-dashboard" class="view active">
         <div id="import-status" class="import-status hidden"></div>
+        <div id="last-sync" class="import-status" style="font-size:0.85em; margin-bottom:8px;"></div>
         <div class="stats-grid" id="stats-grid"></div>
         <div class="dashboard-grid">
           <div class="card">

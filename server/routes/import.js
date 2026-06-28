@@ -20,15 +20,19 @@ router.post('/usac', async (req, res) => {
       getSyncState().catch(() => null),
     ]);
 
+    const requestedForce = req.body?.force;
+    const force = requestedForce !== false; // default to true for explicit web "Import" clicks (bypass unchanged guard to fetch fresh); explicit false allows skip
+    const syncMode = requestedForce ? 'full' : (req.body?.syncMode || 'auto');
+
     const summary = await importUsacData({
       state: req.body?.state,
       fundingYearMin: req.body?.fundingYearMin,
       fundingYearMax: req.body?.fundingYearMax,
       includePending: req.body?.includePending,
-      syncMode: req.body?.force ? 'full' : (req.body?.syncMode || 'auto'),
+      syncMode,
       existingApplicationCount: countResult.rows[0].count,
       lastSyncState: syncState,
-      force: Boolean(req.body?.force),
+      force,
       log: () => {},
     });
 

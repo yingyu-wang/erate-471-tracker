@@ -133,6 +133,8 @@ async function loadDashboard() {
   const yearSelect = $('#filter-year');
   yearSelect.innerHTML = '<option value="">All funding years</option>';
   years.forEach((y) => { yearSelect.innerHTML += `<option value="${y}">FY ${y}</option>`; });
+
+  loadLastSyncStatus();
 }
 
 function setSearchStatus(message, type = 'info') {
@@ -463,29 +465,71 @@ function hideImportStatus() {
   $('#import-status').classList.add('hidden');
 }
 
-async function importUsacData() {
+async function loadLastSyncStatus() {
+  const el = $('#last-sync');
+  if (!el) return;
+  try {
+    const st = await api('/import/usac/status');
+    const ls = st.lastSync;
+    if (!ls || !ls.last_sync_at) {
+      el.textContent = 'Last USAC sync: never (or preloaded)';
+      el.className = 'import-status';
+      return;
+    }
+    const when = new Date(ls.last_sync_at).toLocaleString();
+    const mode = ls.last_sync_mode || 'unknown';
+    const skipped = ls.skipped_reason ? ` (skipped: ${ls.skipped_reason})` : '';
+    const appsInfo = ls.applications_inserted || ls.applications_updated ? ` apps+${(ls.applications_inserted||0)+(ls.applications_updated||0)}` : '';
+    el.textContent = `Last USAC sync: ${when} [${mode}${skipped}${appsInfo}]`;
+    el.className = 'import-status';
+  } catch {
+    el.textContent = 'Last USAC sync: unavailable';
+    el.className = 'import-status';
+  }
+}
+
+async function importUsacData(force = false) {
   const btn = $('#btn-import-usac');
-  if (!confirm('Import California Form 471 applications and FRNs from USAC Open Data? This may take several minutes.')) {
+  const confirmMsg = force
+    ? 'Force FULL re-import of ALL California Form 471 data from USAC Open Data (ignores year window and change detection)? This will take a long time.'
+    : 'Import California Form 471 applications and FRNs from USAC Open Data?\n\n(Default: smart sync of recent years; will skip only if no data changes detected.)';
+  if (!confirm(confirmMsg)) {
     return;
   }
 
   btn.disabled = true;
-  showImportStatus('Importing California data from USAC Open Data… this may take a few minutes.', 'running');
+  showImportStatus(
+    force
+      ? 'Forcing full USAC import (all years) — this will take several minutes…'
+      : 'Importing California data from USAC Open Data (smart sync)… this may take a few minutes.',
+    'running'
+  );
 
   try {
+    const body = { state: 'CA', includePending: true };
+    if (force) body.force = true;
     const result = await api('/import/usac', {
       method: 'POST',
-      body: JSON.stringify({ state: 'CA', includePending: true }),
+      body: JSON.stringify(body),
     });
-    const s = result.summary;
-    const mins = Math.floor(s.elapsedSec / 60);
-    const secs = s.elapsedSec % 60;
-    const elapsed = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
-    showImportStatus(
-      `Import complete — ${s.totals.applications} applications, ${s.totals.frns} FRNs (${elapsed}).`,
-      'success'
-    );
+    const s = result.summary || {};
+    if (s.skipped) {
+      const reason = s.skippedReason || 'no changes';
+      showImportStatus(`Import skipped — no fresh changes (reason: ${reason}).`, 'info');
+    } else {
+      const apps = s.applications || {};
+      const frns = s.frns || {};
+      const mins = Math.floor((s.elapsedSec || 0) / 60);
+      const secs = (s.elapsedSec || 0) % 60;
+      const elapsed = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
+      const totals = s.totals || { applications: 0, frns: 0 };
+      showImportStatus(
+        `Import complete — ${totals.applications} apps (${apps.inserted || 0} new, ${apps.updated || 0} updated, ${apps.unchanged || 0} unchanged), ${totals.frns} FRNs (${frns.inserted || 0} new, ${frns.updated || 0} updated, ${frns.unchanged || 0} unchanged) in ${elapsed}.`,
+        'success'
+      );
+    }
     await refresh();
+    loadLastSyncStatus();
   } catch (err) {
     showImportStatus(`Import failed: ${err.message}`, 'error');
   } finally {
@@ -521,7 +565,10 @@ function init() {
   });
 
   $('#btn-new-app').addEventListener('click', () => openAppModal());
-  $('#btn-import-usac').addEventListener('click', () => importUsacData());
+  $('#btn-import-usac').addEventListener('click', (e) => {
+    const forceFull = !!(e.shiftKey || e.ctrlKey || e.metaKey);
+    importUsacData(forceFull);
+  });
   $('#btn-apply-filters').addEventListener('click', () => loadApplications());
   $('#filter-search').addEventListener('keydown', (e) => {
     if (e.key === 'Enter') loadApplications();
@@ -539,6 +586,7 @@ function init() {
 
   loadMeta()
     .then(() => refresh())
+    .then(() => loadLastSyncStatus())
     .catch((err) => {
       console.error(err);
       $('#db-status').textContent = '● Setup required — see README';

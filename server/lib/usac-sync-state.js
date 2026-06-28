@@ -3,7 +3,12 @@ const { DATASETS, fetchDatasetMetadata } = require('./usac-client');
 
 async function getSyncState() {
   const result = await query('SELECT * FROM usac_sync_state WHERE id = 1');
-  return result.rows[0] || null;
+  const row = result.rows[0] || null;
+  if (row) {
+    if (row.basic_info_rows_updated_at != null) row.basic_info_rows_updated_at = Number(row.basic_info_rows_updated_at);
+    if (row.frn_status_rows_updated_at != null) row.frn_status_rows_updated_at = Number(row.frn_status_rows_updated_at);
+  }
+  return row;
 }
 
 async function fetchDatasetVersions(baseUrl) {
@@ -13,8 +18,8 @@ async function fetchDatasetVersions(baseUrl) {
   ]);
 
   return {
-    basicInfoRowsUpdatedAt: basicInfo.rowsUpdatedAt,
-    frnStatusRowsUpdatedAt: frnStatus.rowsUpdatedAt,
+    basicInfoRowsUpdatedAt: basicInfo.rowsUpdatedAt != null ? Number(basicInfo.rowsUpdatedAt) : null,
+    frnStatusRowsUpdatedAt: frnStatus.rowsUpdatedAt != null ? Number(frnStatus.rowsUpdatedAt) : null,
   };
 }
 
@@ -35,11 +40,11 @@ function datasetsChangedSinceLastSync(syncState, versions) {
   if (!syncState.basic_info_rows_updated_at || !syncState.frn_status_rows_updated_at) {
     return true;
   }
-
-  return (
-    syncState.basic_info_rows_updated_at !== versions.basicInfoRowsUpdatedAt
-    || syncState.frn_status_rows_updated_at !== versions.frnStatusRowsUpdatedAt
-  );
+  const a = Number(syncState.basic_info_rows_updated_at);
+  const b = Number(syncState.frn_status_rows_updated_at);
+  const c = Number(versions?.basicInfoRowsUpdatedAt);
+  const d = Number(versions?.frnStatusRowsUpdatedAt);
+  return (a !== c) || (b !== d);
 }
 
 async function saveSyncState(client, {
