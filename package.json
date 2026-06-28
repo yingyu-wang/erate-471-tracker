@@ -1,0 +1,23 @@
+{
+  "name": "erate-471-tracker",
+  "version": "1.0.0",
+  "description": "Local web app to track USAC E-Rate FCC Form 471 application status",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node --watch server/index.js",
+    "db:init": "node server/scripts/init-db.js",
+    "db:seed": "node server/scripts/seed-db.js",
+    "import:usac": "node server/scripts/import-usac.js",
+    "db:dump": "node server/scripts/create-preloaded-dump.js",
+    "db:dump:docker": "docker exec erate-471-postgres pg_dump -U erate -d erate_471 --data-only --table applications --table frns --table status_history --table usac_sync_state -f /tmp/preloaded.sql && docker cp erate-471-postgres:/tmp/preloaded.sql db/preloaded.sql"
+  },
+  "keywords": ["erate", "usac", "471", "fcc"],
+  "license": "MIT",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "pg": "^8.13.1"
+  }
+}

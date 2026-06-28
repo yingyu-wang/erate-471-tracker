@@ -1,0 +1,7 @@
+---
+pid: 0
+cwd: "c:\Users\Ying\erate-471-tracker"
+command: "\"C:\\Program Files\\Docker\\Docker\\resources\\bin\\docker.exe\" compose -f \"c:\\Users\\Ying\\erate-471-tracker\\docker-compose.yml\" up --build"
+started_at: 2026-06-25T18:29:14.339Z
+running_for_ms: 0        
+---

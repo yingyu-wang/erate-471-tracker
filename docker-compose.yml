@@ -1,0 +1,43 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: erate-471-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: erate
+      POSTGRES_PASSWORD: erate_secret
+      POSTGRES_DB: erate_471
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U erate -d erate_471"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build: .
+    container_name: erate-471-app
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      PORT: 3000
+      DATABASE_URL: postgresql://erate:erate_secret@postgres:5432/erate_471
+      AUTO_IMPORT_USAC: "true"
+      USAC_IMPORT_STATE: CA
+      USAC_IMPORT_INCLUDE_PENDING: "true"
+      USAC_MIN_IMPORTED_APPS: "1000"
+      USAC_SYNC_MODE: "auto"
+      USAC_SYNC_YEAR_WINDOW: "2"
+      USAC_SYNC_CHECK_DATASETS: "true"
+      USAC_IMPORT_PAGE_SIZE: "50000"
+      USAC_SYNC_MIN_INTERVAL_HOURS: "24"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres_data:

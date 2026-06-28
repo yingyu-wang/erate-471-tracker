@@ -1,0 +1,10 @@
+node_modules
+.env
+.git
+*.md
+docker-compose.yml
+Dockerfile
+.dockerignore
+terminals
+wsl-enable.log
+docker-setup.txt
