@@ -32,6 +32,34 @@ A web application for tracking USAC FCC Form 471 application status for Californ
 
 ## Quick Start
 
+### Quickstart (Docker only, no VS Code/Python/Node)
+
+Use this when you just want to pull images and run locally with one command.
+
+```bash
+docker compose -f docker-compose.quickstart.yml up -d
+```
+
+Then open **http://localhost:3000**.
+
+This quickstart file starts:
+- Local PostgreSQL container
+- API image: `yingyuwang/erate-471-tracker-api:0.2.0`
+- Frontend image: `yingyuwang/erate-471-tracker-frontend:0.2.0`
+
+Useful commands:
+
+```bash
+# Check status
+docker compose -f docker-compose.quickstart.yml ps
+
+# Stop services
+docker compose -f docker-compose.quickstart.yml down
+
+# Stop and remove local database data
+docker compose -f docker-compose.quickstart.yml down -v
+```
+
 ### Production Deployment (with Docker Hub images)
 
 For production or trying out the latest release, use the published Docker Hub images:
