@@ -2,9 +2,11 @@
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from app.config import settings
 from app.database import Base, engine
+from app.import_state import is_importing, get_import_error
 from app.routers import applications, sync
 
 # Create tables on startup (MVP — no migrations yet)
@@ -34,3 +36,20 @@ app.include_router(sync.router)
 def health():
     """Liveness probe for Docker and load balancers."""
     return {"status": "ok"}
+
+
+@app.get("/api/health/ready")
+def health_ready():
+    """Readiness probe — returns 503 while USAC import is in progress."""
+    if is_importing():
+        error = get_import_error()
+        if error:
+            return JSONResponse(
+                status_code=503,
+                content={"status": "importing", "error": error}
+            )
+        return JSONResponse(
+            status_code=503,
+            content={"status": "importing", "message": "Initializing USAC data..."}
+        )
+    return {"status": "ready"}
