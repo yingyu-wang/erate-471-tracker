@@ -30,59 +30,58 @@ A web application for tracking USAC FCC Form 471 application status for Californ
 
 ## Quick Start
 
-### 1. Environment
-
-Create a `.env` file in the project root (or use the provided one):
-
-```env
-PORT=3000
-DATABASE_URL=postgresql://erate:erate_secret@localhost:5432/erate_471
-```
-
-### 2. Database
-
-Start PostgreSQL with Docker Compose (first-time setup):
+### With Docker (All-in-One)
 
 ```bash
-docker compose --profile full up -d db
+# Start everything: database, backend API, and frontend (first-time setup)
+docker compose --profile full up -d
+
+# Or if PostgreSQL is already running:
+docker compose up -d
 ```
 
-If you already have a Postgres instance on the `erate-471-tracker_default` network (hostname `postgres`), you can skip this step.
+Then open **http://localhost:3000** in your browser.
 
-### 3. API
+**First-time startup:** The app shows a loading screen while the API initializes. This involves:
+- Running database migrations
+- Loading or importing USAC data (preloaded dump restored in ~1-2 seconds, or full import in 2-5 minutes on first cold start)
+- Once ready, the dashboard loads automatically
 
-Build and start the backend with Docker Compose:
+The frontend polls `/api/health/ready` every 2 seconds and displays:
+- ✅ **"E-Rate 471 Tracker"** card with loading spinner while initializing
+- **Error message** if import fails (with auto-retry)
+- **Dashboard** once the API responds with status 200
 
+**API docs** available at **http://localhost:8000/docs** (once ready).
+
+**Troubleshooting port conflicts:**
 ```bash
-docker compose build api
-docker compose up -d api
+docker ps --format "table {{.Names}}\t{{.Ports}}" | grep "3000\|8000"
+docker compose down  # stop all containers
 ```
 
-On startup the API runs `ensure_import.py`, which:
+### Without Docker (Local Development)
 
-1. **Skips import** if the last sync was less than 24 hours ago and the database already has ≥1,000 applications
-2. **Restores** `backend/db/preloaded.sql` if the database is empty and the dump file exists
-3. **Runs a full USAC import** for California otherwise (can take several minutes)
-
-The API serves at **http://localhost:8000**. Interactive docs are at **http://localhost:8000/docs**.
-
-**Port conflict?** If port 8000 is already in use:
+**Prerequisites:** Node.js 20+, Python 3.12+, PostgreSQL 16+
 
 ```bash
-docker ps --format "table {{.Names}}\t{{.Ports}}" | findstr 8000
-docker rm -f erate-471-api
-docker compose up -d --force-recreate api
+# Terminal 1: Start the backend API
+cd backend
+python -m venv .venv
+source .venv/bin/activate  # macOS/Linux; Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+python ensure_import.py
+uvicorn app.main:app --reload --port 8000
 ```
 
-### 4. Frontend
-
 ```bash
+# Terminal 2: Start the frontend
 cd frontend
 npm install
 npm run dev
 ```
 
-Open **http://localhost:3000**. The Vite dev server proxies `/api` requests to the backend on port 8000.
+Then open **http://localhost:3000**. The Vite dev server proxies `/api` to the backend.
 
 ## USAC Data Import
 
@@ -127,19 +126,12 @@ docker compose run --rm api python backfill_pdf_urls.py
 curl http://localhost:8000/api/sync/status
 ```
 
-## Local Backend Development (without Docker)
+## Architecture
 
-```bash
-cd backend
-python -m venv .venv
-.venv\Scripts\activate        # Windows
-# source .venv/bin/activate   # macOS/Linux
-pip install -r requirements.txt
-python ensure_import.py
-uvicorn app.main:app --reload --port 8000
-```
-
-Run from the `backend` directory. Requires PostgreSQL running and `DATABASE_URL` set (via `.env` or environment).
+- **Frontend**: React 18 + TypeScript + Vite + Material UI (Nginx reverse proxy in Docker)
+- **Backend**: FastAPI + SQLAlchemy ORM + sodapy (USAC data client)
+- **Database**: PostgreSQL 16 with preloaded snapshot of CA Form 471 data
+- **API Proxy**: Nginx (in Docker) proxies `/api` requests from frontend to backend
 
 ## Environment Variables
 
@@ -147,9 +139,7 @@ Run from the `backend` directory. Requires PostgreSQL running and `DATABASE_URL`
 |----------|---------|-------------|
 | `DATABASE_URL` | `postgresql://erate:erate_secret@localhost:5432/erate_471` | PostgreSQL connection string |
 | `CORS_ORIGINS` | `http://localhost:3000,http://localhost:5173` | Comma-separated allowed origins |
-| `PORT` | `3000` | Frontend dev server port (Vite) |
 | `AUTO_IMPORT_USAC` | `true` | Run USAC import logic on API startup |
-| `FORCE_USAC_IMPORT` | `false` | Force full re-import, bypassing 24h cache |
 | `USAC_IMPORT_STATE` | `CA` | US state code to filter Open Data records |
 | `USAC_SYNC_MIN_INTERVAL_HOURS` | `24` | Skip API import if last sync is within this window |
 | `USAC_MIN_IMPORTED_APPS` | `1000` | Minimum applications before skipping restore/import |
@@ -160,7 +150,8 @@ Run from the `backend` directory. Requires PostgreSQL running and `DATABASE_URL`
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/api/health` | Health check |
+| `GET` | `/api/health` | Liveness check (always returns 200 if API is running) |
+| `GET` | `/api/health/ready` | Readiness check (returns 503 while importing, 200 when ready) |
 | `GET` | `/api/sync/status` | USAC sync metadata (last sync time, app count) |
 | `GET` | `/api/applications/stats` | Dashboard statistics |
 | `GET` | `/api/applications` | List applications (filterable) |
@@ -213,9 +204,12 @@ erate-471-tracker/
 │   │   ├── components/          # Layout, status badges, stats cards
 │   │   ├── api/client.ts        # API client
 │   │   └── theme.ts             # MUI colorful theme
+│   ├── Dockerfile               # Multi-stage build: Node builder + Nginx server
+│   ├── nginx.conf               # Nginx reverse proxy config (app + /api → backend)
 │   ├── vite.config.ts           # Dev server + API proxy
-│   └── package.json
-├── docker-compose.yml
+│   ├── package.json
+│   └── .dockerignore
+├── docker-compose.yml           # Orchestrates db, backend API, and frontend
 ├── .env
 └── README.md
 ```
@@ -233,14 +227,35 @@ Tables use the `tracker_` prefix to avoid conflicts with other schemas in the sa
 
 Applications are uniquely identified by `(application_number, funding_year)`.
 
-## Production Build
+## Production Deployment
 
+### With Docker
+
+```bash
+# Build and start all services
+docker compose --profile full up -d
+```
+
+All services run behind:
+- **Nginx** (port 3000) — serves the React app and proxies `/api` → backend
+- **FastAPI** (port 8000) — REST API
+- **PostgreSQL** — persistent data store
+
+### Manual Builds
+
+Build the frontend:
 ```bash
 cd frontend
 npm run build
 ```
 
-Static assets are output to `frontend/dist/`. Serve them behind a reverse proxy that forwards `/api` to the FastAPI backend.
+Static assets output to `frontend/dist/`. Serve behind a reverse proxy that forwards `/api` to the FastAPI backend (port 8000).
+
+Build the backend:
+```bash
+cd backend
+docker build -t erate-471-api .
+```
 
 ## License
 
