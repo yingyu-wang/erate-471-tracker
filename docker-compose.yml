@@ -1,0 +1,46 @@
+# Docker Compose for E-Rate 471 Tracker
+# Use `docker compose --profile full up -d db` for a fresh Postgres instance.
+# The API joins an existing network so it can reach a running `postgres` host.
+
+services:
+  db:
+    image: postgres:16-alpine
+    profiles: ["full"]  # optional — skip if Postgres is already running
+    environment:
+      POSTGRES_USER: erate
+      POSTGRES_PASSWORD: erate_secret
+      POSTGRES_DB: erate_471
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U erate -d erate_471"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build: ./backend
+    container_name: erate-471-tracker-api
+    restart: unless-stopped
+    ports:
+      - "8000:8000"  # stop any other container on 8000 first (e.g. erate-471-api)
+    environment:
+      DATABASE_URL: postgresql://erate:erate_secret@postgres:5432/erate_471
+      CORS_ORIGINS: http://localhost:3000,http://localhost:5173
+      AUTO_IMPORT_USAC: "true"
+      USAC_IMPORT_STATE: CA
+      USAC_SYNC_MIN_INTERVAL_HOURS: "24"
+      USAC_MIN_IMPORTED_APPS: "1000"
+      PRELOADED_DUMP_PATH: /app/db/preloaded.sql
+    networks:
+      - default
+
+networks:
+  default:
+    external: true
+    name: erate-471-tracker_default
+
+volumes:
+  pgdata:
