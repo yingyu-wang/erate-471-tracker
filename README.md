@@ -46,7 +46,12 @@ Then open **http://localhost:3000**.
 This quickstart file starts:
 - Local PostgreSQL container
 - API image: `yingyuwang/erate-471-tracker-api:0.2.0`
-- Frontend image: `yingyuwang/erate-471-tracker-frontend:0.2.1`
+- Frontend image: `yingyuwang/erate-471-tracker-frontend:0.2.2`
+
+If a stale browser tab appears stuck on loading after a redeploy, open:
+- `http://localhost:3000/?v=1`
+
+The frontend now includes stronger shell no-cache headers and a one-time fallback reload to reduce stale-cache issues.
 
 Useful commands:
 

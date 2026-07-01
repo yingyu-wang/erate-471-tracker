@@ -28,6 +28,20 @@ export default function App() {
     checkReady();
   }, []);
 
+  useEffect(() => {
+    if (isReady) return;
+
+    const fallbackTimer = window.setTimeout(() => {
+      const url = new URL(window.location.href);
+      if (!url.searchParams.has("v")) {
+        url.searchParams.set("v", String(Date.now()));
+        window.location.replace(url.toString());
+      }
+    }, 15000);
+
+    return () => window.clearTimeout(fallbackTimer);
+  }, [isReady]);
+
   if (!isReady) {
     return <LoadingScreen onReady={() => setIsReady(true)} />;
   }

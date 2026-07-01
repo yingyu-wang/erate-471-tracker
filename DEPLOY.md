@@ -61,7 +61,15 @@ curl http://localhost:8000/api/health/ready
 
 # Access frontend
 open http://localhost:3000
+
+# If browser cache is stale after redeploy, use a cache-busting URL
+open "http://localhost:3000/?v=$(date +%s)"
 ```
+
+Frontend cache behavior note:
+- Static assets (`.js/.css`) are immutable and versioned.
+- SPA shell (`index.html`) is served with no-cache headers.
+- The app includes a one-time fallback reload if loading appears stuck.
 
 ## Database Options
 
