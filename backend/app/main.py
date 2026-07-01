@@ -1,6 +1,6 @@
 """FastAPI application entry point."""
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends, HTTPException, Header, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
@@ -28,8 +28,23 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(applications.router)
-app.include_router(sync.router)
+# Optional API key authentication
+def verify_api_key(x_api_key: str | None = Header(None)) -> None:
+    """Verify API key if configured; skip if no key is set (development mode)."""
+    if not settings.api_key:
+        # No API key configured — allow all requests
+        return
+    
+    # API key is configured — require X-API-Key header
+    if not x_api_key or x_api_key != settings.api_key:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or missing API key",
+        )
+
+
+app.include_router(applications.router, dependencies=[Depends(verify_api_key)])
+app.include_router(sync.router, dependencies=[Depends(verify_api_key)])
 
 
 @app.get("/api/health")

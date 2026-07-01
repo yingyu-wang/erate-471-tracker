@@ -14,7 +14,8 @@ COPY app ./app
 COPY ensure_import.py create_preloaded_dump.py backfill_pdf_urls.py ./
 COPY db ./db
 
-ENV DATABASE_URL=postgresql://erate:erate_secret@db:5432/erate_471
+# DATABASE_URL must be provided at runtime (e.g. via docker-compose environment:)
+# Do not bake credentials into the image.
 ENV AUTO_IMPORT_USAC=true
 ENV USAC_IMPORT_STATE=CA
 ENV USAC_SYNC_MIN_INTERVAL_HOURS=24

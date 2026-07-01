@@ -17,7 +17,7 @@ import Grid from "@mui/material/Grid2";
 import { api } from "../api/client";
 import StatsCards from "../components/StatsCards";
 import StatusBadge from "../components/StatusBadge";
-import type { ApplicationSummary, DashboardStats } from "../types";
+import type { ApplicationSummary, DashboardStats, PaginatedApplications } from "../types";
 import { Link as RouterLink } from "react-router-dom";
 import { statusColors } from "../theme";
 
@@ -31,10 +31,10 @@ export default function Dashboard() {
   useEffect(() => {
     setLoading(true);
     const year = fundingYear === "" ? undefined : fundingYear;
-    Promise.all([api.getStats(year), api.listApplications({ funding_year: year })])
-      .then(([s, apps]) => {
+    Promise.all([api.getStats(year), api.listApplications({ funding_year: year, limit: 5, offset: 0 })])
+      .then(([s, response]: [DashboardStats, PaginatedApplications]) => {
         setStats(s);
-        setRecent(apps.slice(0, 5)); // most recently updated first (API sort order)
+        setRecent(response.items); // most recently updated first (API sort order)
         setError("");
       })
       .catch((e) => setError(e.message))

@@ -30,7 +30,11 @@ services:
       db:
         condition: service_healthy
     environment:
+      # Database connection — required at runtime, no default
       DATABASE_URL: postgresql://erate:erate_secret@db:5432/erate_471
+      # Optional API key — leave empty to disable authentication
+      # In production, set to a strong random value
+      API_KEY: ""
       CORS_ORIGINS: http://localhost:3000,http://localhost:5173
       AUTO_IMPORT_USAC: "true"
       USAC_IMPORT_STATE: CA

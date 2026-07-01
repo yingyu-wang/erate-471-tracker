@@ -127,3 +127,11 @@ class DashboardStats(BaseModel):
     total_requested: float
     total_funded: float
     funding_years: list[int]
+
+
+class PaginatedResponse(BaseModel):
+    """Generic wrapper for paginated API responses."""
+    items: list  # Type should be narrowed by each endpoint
+    total: int
+    limit: int
+    offset: int

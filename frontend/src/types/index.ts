@@ -81,6 +81,14 @@ export interface DashboardStats {
   funding_years: number[];
 }
 
+/** Paginated response from GET /api/applications */
+export interface PaginatedApplications {
+  items: ApplicationSummary[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
 /** Request body for POST /api/applications */
 export interface ApplicationCreatePayload {
   application_number: string;

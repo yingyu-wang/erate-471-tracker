@@ -4,7 +4,15 @@ from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
-    database_url: str = "postgresql://erate:erate_secret@localhost:5432/erate_471"
+    # Database URL must be set at runtime via environment or .env
+    # No default to ensure explicit configuration in production
+    database_url: str
+    
+    # Optional API key for authentication
+    # If set, X-API-Key header is required on all API requests
+    api_key: str | None = None
+    
+    # CORS origins for development/testing
     cors_origins: str = "http://localhost:3000,http://localhost:5173"
 
     # Search multiple paths so settings work from backend/ or project root

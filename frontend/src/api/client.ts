@@ -6,9 +6,9 @@
 import type {
   Application,
   ApplicationCreatePayload,
-  ApplicationSummary,
   DashboardStats,
   ApplicationStatus,
+  PaginatedApplications,
 } from "../types";
 
 const BASE = "/api";
@@ -37,13 +37,17 @@ export const api = {
     status?: ApplicationStatus;
     funding_year?: number;
     search?: string;
+    limit?: number;
+    offset?: number;
   }) => {
     const q = new URLSearchParams();
     if (params?.status) q.set("status", params.status);
     if (params?.funding_year) q.set("funding_year", String(params.funding_year));
     if (params?.search) q.set("search", params.search);
+    if (params?.limit) q.set("limit", String(params.limit));
+    if (params?.offset) q.set("offset", String(params.offset));
     const qs = q.toString();
-    return request<ApplicationSummary[]>(`/applications${qs ? `?${qs}` : ""}`);
+    return request<PaginatedApplications>(`/applications${qs ? `?${qs}` : ""}`);
   },
 
   getApplication: (id: number) => request<Application>(`/applications/${id}`),

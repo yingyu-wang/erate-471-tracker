@@ -18,12 +18,13 @@ import {
   Typography,
   LinearProgress,
   IconButton,
+  Pagination,
 } from "@mui/material";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import { Link as RouterLink } from "react-router-dom";
 import { api } from "../api/client";
 import StatusBadge from "../components/StatusBadge";
-import type { ApplicationStatus, ApplicationSummary } from "../types";
+import type { ApplicationStatus, ApplicationSummary, PaginatedApplications } from "../types";
 
 const STATUS_OPTIONS: { value: ApplicationStatus | ""; label: string }[] = [
   { value: "", label: "All Statuses" },
@@ -42,6 +43,8 @@ export default function ApplicationList() {
   const [status, setStatus] = useState<ApplicationStatus | "">("");
   const [fundingYear, setFundingYear] = useState<number | "">("");
   const [loading, setLoading] = useState(true);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
 
   useEffect(() => {
     // Debounce search/filter changes to avoid hammering the API on every keystroke
@@ -52,12 +55,17 @@ export default function ApplicationList() {
           search: search || undefined,
           status: status || undefined,
           funding_year: fundingYear === "" ? undefined : fundingYear,
+          limit: 50,
+          offset: (page - 1) * 50,
         })
-        .then(setApps)
+        .then((result: PaginatedApplications) => {
+          setApps(result.items);
+          setTotal(result.total);
+        })
         .finally(() => setLoading(false));
     }, 300);
     return () => clearTimeout(timer);
-  }, [search, status, fundingYear]);
+  }, [search, status, fundingYear, page]);
 
   // Derive year filter options from current result set
   const years = [...new Set(apps.map((a) => a.funding_year))].sort((a, b) => b - a);
@@ -180,6 +188,17 @@ export default function ApplicationList() {
           </Table>
         </TableContainer>
       </Card>
+
+      {total > 0 && (
+        <Box sx={{ display: "flex", justifyContent: "center", mt: 3 }}>
+          <Pagination
+            count={Math.ceil(total / 50)}
+            page={page}
+            onChange={(_, value) => setPage(value)}
+            color="primary"
+          />
+        </Box>
+      )}
     </Box>
   );
 }
