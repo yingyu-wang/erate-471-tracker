@@ -1,0 +1,50 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: erate-db-quickstart
+    environment:
+      POSTGRES_USER: erate_user
+      POSTGRES_PASSWORD: erate_password
+      POSTGRES_DB: erate_471
+    volumes:
+      - erate-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U erate_user"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  api:
+    image: yingyuwang/erate-471-tracker-api:0.2.0
+    container_name: erate-api-quickstart
+    environment:
+      DATABASE_URL: postgresql://erate_user:erate_password@db:5432/erate_471
+      API_KEY: ""
+      CORS_ORIGINS: http://localhost:3000
+      AUTO_IMPORT_USAC: "false"
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 120s
+    restart: unless-stopped
+
+  frontend:
+    image: yingyuwang/erate-471-tracker-frontend:0.2.0
+    container_name: erate-frontend-quickstart
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+
+volumes:
+  erate-db-data:
