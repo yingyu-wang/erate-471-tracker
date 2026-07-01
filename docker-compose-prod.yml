@@ -1,0 +1,187 @@
+version: "3.8"
+
+# Production-ready docker-compose for e-Rate 471 Tracker
+# 
+# QUICK START:
+#   1. Create a .env file with required variables (see ENVIRONMENT VARIABLES below)
+#   2. Run: docker compose -f docker-compose-prod.yml up -d
+#
+# ENVIRONMENT VARIABLES (required):
+#   DATABASE_URL: PostgreSQL connection string (e.g., postgresql://user:pass@db-host:5432/erate_471)
+#   
+# ENVIRONMENT VARIABLES (optional):
+#   API_KEY: Set to enable X-API-Key authentication (leave empty "" to disable)
+#   CORS_ORIGINS: Comma-separated list of allowed CORS origins (default: http://localhost:3000)
+#   AUTO_IMPORT_USAC: Set to "true" to auto-import USAC data on startup (default: false)
+#
+# EXAMPLE .env file:
+#   DATABASE_URL=postgresql://erate_user:my_secure_password@postgres.example.com:5432/erate_471
+#   API_KEY=sk-prod-abc123xyz789
+#   CORS_ORIGINS=https://erate.example.com,https://www.erate.example.com
+#   AUTO_IMPORT_USAC=false
+
+services:
+  # FastAPI Backend - Form 471 API Server
+  api:
+    image: yingyuwang/erate-471-tracker-api:0.2.0
+    container_name: erate-api-prod
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?error: DATABASE_URL environment variable is required}
+      API_KEY: ${API_KEY:-}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
+      AUTO_IMPORT_USAC: ${AUTO_IMPORT_USAC:-false}
+    restart: always
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 120s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - erate-network
+    depends_on:
+      - db
+    # Resource limits (adjust based on your infrastructure)
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 2G
+        reservations:
+          cpus: "1"
+          memory: 1G
+
+  # React Frontend - Web UI
+  frontend:
+    image: yingyuwang/erate-471-tracker-frontend:0.2.0
+    container_name: erate-frontend-prod
+    ports:
+      - "3000:3000"
+    restart: always
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - erate-network
+    depends_on:
+      api:
+        condition: service_healthy
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: "1"
+          memory: 512M
+        reservations:
+          cpus: "0.5"
+          memory: 256M
+
+  # PostgreSQL Database (optional - use this or external managed database)
+  # Uncomment to use a local PostgreSQL instance
+  # For production, consider using a managed database (Azure Database for PostgreSQL, AWS RDS, etc.)
+  db:
+    image: postgres:16-alpine
+    container_name: erate-db-prod
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: ${DB_USER:-erate_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?error: DB_PASSWORD environment variable is required}
+      POSTGRES_DB: erate_471
+    volumes:
+      # Mount preloaded database dump (optional)
+      # - ./db/preloaded.sql:/docker-entrypoint-initdb.d/preloaded.sql
+      # Persistent volume for database data
+      - erate-db-data:/var/lib/postgresql/data
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-erate_user}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - erate-network
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 2G
+        reservations:
+          cpus: "1"
+          memory: 1G
+
+networks:
+  erate-network:
+    driver: bridge
+
+volumes:
+  erate-db-data:
+    driver: local
+
+# DEPLOYMENT INSTRUCTIONS:
+# 
+# 1. Create .env file with required variables:
+#    echo "DATABASE_URL=postgresql://erate_user:password123@localhost:5432/erate_471" > .env
+#    echo "DB_PASSWORD=password123" >> .env
+#    echo "API_KEY=sk-prod-your-secret-key" >> .env
+#
+# 2. Start services:
+#    docker compose -f docker-compose-prod.yml up -d
+#
+# 3. Monitor logs:
+#    docker compose -f docker-compose-prod.yml logs -f api
+#    docker compose -f docker-compose-prod.yml logs -f frontend
+#
+# 4. Check service status:
+#    docker compose -f docker-compose-prod.yml ps
+#
+# 5. Stop services:
+#    docker compose -f docker-compose-prod.yml down
+#
+# 6. Full cleanup (including data):
+#    docker compose -f docker-compose-prod.yml down -v
+#
+# USING EXTERNAL DATABASE:
+# If you're using a managed database (e.g., Azure Database for PostgreSQL):
+#   1. Comment out or remove the 'db' service entirely
+#   2. Set DATABASE_URL to your managed database connection string
+#   3. Remove 'depends_on: db' from the api service
+#
+# REVERSE PROXY (nginx/Caddy) CONFIGURATION:
+# For production, place this behind a reverse proxy:
+#
+#   location / {
+#     proxy_pass http://localhost:3000;
+#     proxy_set_header Host $host;
+#     proxy_set_header X-Real-IP $remote_addr;
+#     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+#     proxy_set_header X-Forwarded-Proto $scheme;
+#   }
+#
+# SECURITY RECOMMENDATIONS:
+#   - Always use strong API_KEY values (minimum 32 characters)
+#   - Use HTTPS/TLS for production (configure reverse proxy with SSL certificate)
+#   - Restrict database access to only the API container
+#   - Regularly backup the erate-db-data volume
+#   - Monitor logs for errors and security issues
+#   - Keep images updated: docker pull yingyuwang/erate-471-tracker-api:latest
