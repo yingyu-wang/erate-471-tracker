@@ -39,9 +39,10 @@ services:
       PRELOADED_DUMP_PATH: /app/db/preloaded.sql
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/api/health/ready"]
-      interval: 5s
+      interval: 10s
       timeout: 10s
-      retries: 60  # Allow up to 5 minutes for import to complete
+      start_period: 120s  # Give import time to run before counting failures
+      retries: 60  # Allow up to 10 more minutes after start_period
     networks:
       - default
 
