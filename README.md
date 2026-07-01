@@ -9,9 +9,11 @@ A web application for tracking USAC FCC Form 471 application status for Californ
 - **24-hour sync cache** — skips re-import if the last sync was less than 24 hours ago
 - **PDF form links** — click an application number to open the certified Form 471 PDF (`usac_file_url`)
 - **Dashboard** — portfolio stats, status breakdown, and recent applications
-- **Application list** — search and filter by organization, application number, BEN, status, and funding year
+- **Application list** — search and filter by organization, application number, BEN, status, and funding year with pagination
 - **Application detail** — view FRNs, update status with notes, and review status history
 - **New application form** — manually register Form 471 filings with optional FRNs
+- **Startup readiness check** — loading screen with status polling until API is ready
+- **Optional API authentication** — X-API-Key header for production deployments
 
 ## Tech Stack
 
@@ -30,7 +32,24 @@ A web application for tracking USAC FCC Form 471 application status for Californ
 
 ## Quick Start
 
-### With Docker (All-in-One)
+### Production Deployment (with Docker Hub images)
+
+For production or trying out the latest release, use the published Docker Hub images:
+
+```bash
+# Copy environment template and configure
+cp .env.example .env
+# Edit .env with your DATABASE_URL and optional API_KEY
+
+# Start all services with published images
+docker compose -f docker-compose-prod.yml up -d
+```
+
+Then open **http://localhost:3000** in your browser. See [DEPLOY.md](DEPLOY.md) for detailed production configuration, database options, HTTPS setup, and troubleshooting.
+
+### Development (Docker - All-in-One)
+
+For development or testing, build and run locally:
 
 ```bash
 # Start everything: database, backend API, and frontend (first-time setup)
@@ -137,7 +156,8 @@ curl http://localhost:8000/api/sync/status
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `DATABASE_URL` | `postgresql://erate:erate_secret@localhost:5432/erate_471` | PostgreSQL connection string |
+| `DATABASE_URL` | `postgresql://erate:erate_secret@localhost:5432/erate_471` | PostgreSQL connection string (required for production) |
+| `API_KEY` | *(unset)* | Optional X-API-Key authentication (leave empty to disable auth) |
 | `CORS_ORIGINS` | `http://localhost:3000,http://localhost:5173` | Comma-separated allowed origins |
 | `AUTO_IMPORT_USAC` | `true` | Run USAC import logic on API startup |
 | `USAC_IMPORT_STATE` | `CA` | US state code to filter Open Data records |
@@ -154,13 +174,40 @@ curl http://localhost:8000/api/sync/status
 | `GET` | `/api/health/ready` | Readiness check (returns 503 while importing, 200 when ready) |
 | `GET` | `/api/sync/status` | USAC sync metadata (last sync time, app count) |
 | `GET` | `/api/applications/stats` | Dashboard statistics |
-| `GET` | `/api/applications` | List applications (filterable) |
+| `GET` | `/api/applications` | List applications (filterable, paginated with `limit` and `offset` params) |
 | `GET` | `/api/applications/{id}` | Get application with FRNs and history |
 | `POST` | `/api/applications` | Create application |
 | `PATCH` | `/api/applications/{id}` | Update application / status |
 | `DELETE` | `/api/applications/{id}` | Delete application |
 | `POST` | `/api/applications/{id}/frns` | Add FRN to application |
 | `PATCH` | `/api/applications/frns/{frn_id}` | Update FRN |
+
+### Authentication
+
+API authentication is optional and controlled by the `API_KEY` environment variable:
+
+- **Disabled (development)**: `API_KEY=""` or not set — all requests work without authentication
+- **Enabled (production)**: `API_KEY=your-secret-key` — clients must include `X-API-Key: your-secret-key` header
+
+Example with authentication:
+```bash
+curl -H "X-API-Key: sk-prod-abc123xyz" http://localhost:8000/api/applications
+```
+
+### Pagination
+
+The `/api/applications` endpoint supports pagination with `limit` (default: 50, max: 500) and `offset` (default: 0):
+
+```bash
+# First 50 applications
+curl http://localhost:8000/api/applications?limit=50&offset=0
+
+# Next 50 applications
+curl http://localhost:8000/api/applications?limit=50&offset=50
+
+# Response includes total count:
+# {"items": [...], "total": 28000, "limit": 50, "offset": 0}
+```
 
 ### Application Statuses
 
@@ -229,32 +276,36 @@ Applications are uniquely identified by `(application_number, funding_year)`.
 
 ## Production Deployment
 
-### With Docker
+### With Published Docker Images (Recommended)
+
+Published images are available on Docker Hub:
+
+- **Backend API**: [`yingyuwang/erate-471-tracker-api:0.2.0`](https://hub.docker.com/r/yingyuwang/erate-471-tracker-api)
+- **Frontend**: [`yingyuwang/erate-471-tracker-frontend:0.2.0`](https://hub.docker.com/r/yingyuwang/erate-471-tracker-frontend)
+
+For production deployment, see [DEPLOY.md](DEPLOY.md) for:
+- Detailed setup instructions
+- Database configuration (local PostgreSQL or managed services)
+- HTTPS/TLS reverse proxy setup
+- Environment variables and API key authentication
+- Monitoring, logging, and backup procedures
+- Troubleshooting guide
+
+Quick start:
 
 ```bash
-# Build and start all services
+cp .env.example .env
+# Edit .env with your DATABASE_URL and optional API_KEY
+
+docker compose -f docker-compose-prod.yml up -d
+```
+
+### With Docker (Development)
+
+Build and start all services locally:
+
+```bash
 docker compose --profile full up -d
-```
-
-All services run behind:
-- **Nginx** (port 3000) — serves the React app and proxies `/api` → backend
-- **FastAPI** (port 8000) — REST API
-- **PostgreSQL** — persistent data store
-
-### Manual Builds
-
-Build the frontend:
-```bash
-cd frontend
-npm run build
-```
-
-Static assets output to `frontend/dist/`. Serve behind a reverse proxy that forwards `/api` to the FastAPI backend (port 8000).
-
-Build the backend:
-```bash
-cd backend
-docker build -t erate-471-api .
 ```
 
 ## License
