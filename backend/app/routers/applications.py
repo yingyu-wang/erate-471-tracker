@@ -1,5 +1,7 @@
 """REST endpoints for Form 471 applications, FRNs, and dashboard stats."""
 
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy import func
@@ -17,8 +19,11 @@ from app.schemas import (
     FrnRead,
     FrnUpdate,
 )
+from app.usac.client import fetch_latest_application_row
+from app.usac.mappers import map_basic_info_row
 
 router = APIRouter(prefix="/api/applications", tags=["applications"])
+logger = logging.getLogger(__name__)
 
 
 def _record_status_change(
@@ -85,6 +90,7 @@ def list_applications(
     status: ApplicationStatus | None = None,
     funding_year: int | None = None,
     search: str | None = None,
+    live_status_check: bool = Query(False, description="Refresh exact searched 471 status from USAC"),
     db: Session = Depends(get_db),
 ):
     """List applications with optional filters; search matches org name, app #, or BEN."""
@@ -101,6 +107,44 @@ def list_applications(
             | (Application.ben.ilike(term))
         )
     apps = query.order_by(Application.updated_at.desc()).all()
+
+    # Optional live refresh: when searching an exact 471 application number, pull the
+    # latest status from USAC and update local cache before returning results.
+    if live_status_check and search:
+        search_term = search.strip()
+        exact_matches = [a for a in apps if a.application_number == search_term]
+        for app in exact_matches:
+            try:
+                live_row = fetch_latest_application_row(
+                    app.application_number,
+                    state="CA",
+                    funding_year=app.funding_year,
+                )
+                mapped = map_basic_info_row(live_row) if live_row else None
+                if not mapped:
+                    continue
+
+                old_status = app.status
+                for key, value in mapped.items():
+                    if key == "application_number" or key == "funding_year":
+                        continue
+                    setattr(app, key, value)
+
+                if app.status != old_status:
+                    db.add(
+                        StatusHistory(
+                            application_id=app.id,
+                            from_status=old_status,
+                            to_status=app.status,
+                            note="Live USAC status refresh from search",
+                        )
+                    )
+            except Exception as exc:  # pragma: no cover - non-critical network path
+                logger.warning("Live USAC refresh failed for %s: %s", app.application_number, exc)
+
+        if exact_matches:
+            db.commit()
+
     return [
         ApplicationSummary(
             id=a.id,

@@ -118,6 +118,21 @@ curl -H "X-API-Key: sk-prod-abc123xyz789def456ghi789jkl012mno" \
   http://localhost:8000/api/applications
 ```
 
+## Live 471 Status Check (USAC)
+
+The Application search flow supports an optional live status refresh from USAC Open Data for exact Form 471 number lookups.
+
+Example:
+
+```bash
+curl "http://localhost:8000/api/applications?search=181035670&live_status_check=true"
+```
+
+Operational notes:
+- Use `live_status_check=true` for exact Form 471 number searches to avoid unnecessary external API calls.
+- If USAC returns a newer status, the local application record is updated and status history is appended.
+- If USAC is unavailable or rate-limited, the API falls back to local data and still returns search results.
+
 ## HTTPS/TLS Configuration
 
 For production, always use HTTPS. Place this deployment behind a reverse proxy:

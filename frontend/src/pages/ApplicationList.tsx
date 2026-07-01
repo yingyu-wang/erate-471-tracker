@@ -50,13 +50,16 @@ export default function ApplicationList() {
     // Debounce search/filter changes to avoid hammering the API on every keystroke
     const timer = setTimeout(() => {
       setLoading(true);
+      const trimmedSearch = search.trim();
+      const isLikelyApplicationNumber = /^\d{8,}$/.test(trimmedSearch);
       api
         .listApplications({
-          search: search || undefined,
+          search: trimmedSearch || undefined,
           status: status || undefined,
           funding_year: fundingYear === "" ? undefined : fundingYear,
           limit: 50,
           offset: (page - 1) * 50,
+          live_status_check: isLikelyApplicationNumber,
         })
         .then((result: PaginatedApplications) => {
           setApps(result.items);

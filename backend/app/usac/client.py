@@ -27,6 +27,10 @@ def build_where(**filters: str | None) -> str | None:
         clauses.append(f"form_version='{_escape_soql(filters['form_version'])}'")
     if filters.get("application_status"):
         clauses.append(f"form_471_status_name='{_escape_soql(filters['application_status'])}'")
+    if filters.get("application_number"):
+        clauses.append(f"application_number='{_escape_soql(filters['application_number'])}'")
+    if filters.get("funding_year"):
+        clauses.append(f"funding_year='{_escape_soql(str(filters['funding_year']))}'")
     return " AND ".join(clauses) if clauses else None
 
 
@@ -62,3 +66,27 @@ def iterate_dataset(
                 batch = []
     if batch:
         yield batch
+
+
+def fetch_latest_application_row(
+    application_number: str,
+    *,
+    state: str = "CA",
+    funding_year: int | None = None,
+    form_version: str = "Current",
+) -> dict[str, Any] | None:
+    """Fetch a single latest Form 471 row by application number from USAC Open Data."""
+    where = build_where(
+        state=state,
+        form_version=form_version,
+        application_number=application_number,
+        funding_year=str(funding_year) if funding_year is not None else None,
+    )
+    with get_client() as client:
+        rows = client.get(
+            DATASETS["basic_info"],
+            where=where,
+            limit=1,
+            order="certified_datetime DESC",
+        )
+    return rows[0] if rows else None

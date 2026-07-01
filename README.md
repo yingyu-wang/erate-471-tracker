@@ -10,6 +10,7 @@ A web application for tracking USAC FCC Form 471 application status for Californ
 - **PDF form links** — click an application number to open the certified Form 471 PDF (`usac_file_url`)
 - **Dashboard** — portfolio stats, status breakdown, and recent applications
 - **Application list** — search and filter by organization, application number, BEN, status, and funding year with pagination
+- **Live 471 status refresh** — exact Form 471 number searches can trigger a real-time USAC status refresh
 - **Application detail** — view FRNs, update status with notes, and review status history
 - **New application form** — manually register Form 471 filings with optional FRNs
 - **Startup readiness check** — loading screen with status polling until API is ready
@@ -45,7 +46,7 @@ Then open **http://localhost:3000**.
 This quickstart file starts:
 - Local PostgreSQL container
 - API image: `yingyuwang/erate-471-tracker-api:0.2.0`
-- Frontend image: `yingyuwang/erate-471-tracker-frontend:0.2.0`
+- Frontend image: `yingyuwang/erate-471-tracker-frontend:0.2.1`
 
 Useful commands:
 
@@ -202,7 +203,7 @@ curl http://localhost:8000/api/sync/status
 | `GET` | `/api/health/ready` | Readiness check (returns 503 while importing, 200 when ready) |
 | `GET` | `/api/sync/status` | USAC sync metadata (last sync time, app count) |
 | `GET` | `/api/applications/stats` | Dashboard statistics |
-| `GET` | `/api/applications` | List applications (filterable, paginated with `limit` and `offset` params) |
+| `GET` | `/api/applications` | List applications (filterable, paginated with `limit` and `offset` params, supports `live_status_check`) |
 | `GET` | `/api/applications/{id}` | Get application with FRNs and history |
 | `POST` | `/api/applications` | Create application |
 | `PATCH` | `/api/applications/{id}` | Update application / status |
@@ -236,6 +237,19 @@ curl http://localhost:8000/api/applications?limit=50&offset=50
 # Response includes total count:
 # {"items": [...], "total": 28000, "limit": 50, "offset": 0}
 ```
+
+### Live 471 Status Check
+
+When searching by an exact Form 471 application number, clients can request a live status refresh from USAC Open Data before results are returned.
+
+```bash
+curl "http://localhost:8000/api/applications?search=181035670&live_status_check=true"
+```
+
+Notes:
+- `live_status_check=true` is intended for exact application number searches.
+- If a newer status is found in USAC, the local record is updated and status history is recorded.
+- If USAC is temporarily unavailable, search still returns local cached results.
 
 ### Application Statuses
 

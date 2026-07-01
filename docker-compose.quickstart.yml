@@ -22,7 +22,7 @@ services:
       DATABASE_URL: postgresql://erate_user:erate_password@db:5432/erate_471
       API_KEY: ""
       CORS_ORIGINS: http://localhost:3000
-      AUTO_IMPORT_USAC: "false"
+      AUTO_IMPORT_USAC: "true"
     depends_on:
       db:
         condition: service_healthy
@@ -37,7 +37,7 @@ services:
     restart: unless-stopped
 
   frontend:
-    image: yingyuwang/erate-471-tracker-frontend:0.2.0
+    image: yingyuwang/erate-471-tracker-frontend:0.2.1
     container_name: erate-frontend-quickstart
     depends_on:
       api:

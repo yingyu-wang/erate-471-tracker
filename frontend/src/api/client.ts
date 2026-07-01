@@ -8,6 +8,7 @@ import type {
   ApplicationCreatePayload,
   DashboardStats,
   ApplicationStatus,
+  ApplicationSummary,
   PaginatedApplications,
 } from "../types";
 
@@ -39,6 +40,7 @@ export const api = {
     search?: string;
     limit?: number;
     offset?: number;
+    live_status_check?: boolean;
   }) => {
     const q = new URLSearchParams();
     if (params?.status) q.set("status", params.status);
@@ -46,8 +48,24 @@ export const api = {
     if (params?.search) q.set("search", params.search);
     if (params?.limit) q.set("limit", String(params.limit));
     if (params?.offset) q.set("offset", String(params.offset));
+    if (params?.live_status_check) q.set("live_status_check", "true");
     const qs = q.toString();
-    return request<PaginatedApplications>(`/applications${qs ? `?${qs}` : ""}`);
+    return request<PaginatedApplications | ApplicationSummary[]>(`/applications${qs ? `?${qs}` : ""}`).then(
+      (data) => {
+        // Backward compatibility: older API images return a plain array.
+        if (Array.isArray(data)) {
+          const limit = params?.limit ?? data.length;
+          const offset = params?.offset ?? 0;
+          return {
+            items: data,
+            total: data.length,
+            limit,
+            offset,
+          };
+        }
+        return data;
+      }
+    );
   },
 
   getApplication: (id: number) => request<Application>(`/applications/${id}`),
